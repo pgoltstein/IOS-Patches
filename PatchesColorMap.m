@@ -20,6 +20,7 @@ function PatchesColorMap( numYpatches, numXpatches, ...
 %
     
     % Local settings
+    ScaleRange = [0.3 0.9];
     UseColorMap = 'hsv'; % Use this map, unless n-ptaches is 4 or 9, 
                          %   then it uses manually defined, see below
 
@@ -64,8 +65,7 @@ function PatchesColorMap( numYpatches, numXpatches, ...
         colorbar;
     end
 
-    % get largests negative response
-    ScaleRange = [0.3 0.9];
+    % get largests 'negative' response
     for s = 1:nStim
         MaxR(s) = max(max(ScaledResponseMatrix(:,:,s)));
     end
