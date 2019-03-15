@@ -1,5 +1,6 @@
 function PatchesColorMap( numYpatches, numXpatches, ...
-    AverageResponseMatrix, SaveDirectory, BloodVesselImage)
+    AverageResponseMatrix, SaveDirectory, BloodVesselImage, ...
+    ScaleRange, NormalizeImages, ClipAtLowerPercentile, InvertResponse)
 % function PatchesColorMap( numYpatches, numXpatches, ...
 %     AverageResponseMatrix, SaveDirectory, BloodVesselImage)
 % 
@@ -15,12 +16,19 @@ function PatchesColorMap( numYpatches, numXpatches, ...
 %                           [npixelsY, npixelsX, nStimuli]
 %                           Stimuli are patches organized in a row like this:
 %                           [ X1Y1, X2Y1, X3Y1, X1Y2, X2Y2, X3Y2, etc..]
-%  - BloodVesselImage:  (optional) Matrix containing a bloodvessel image [Y,X]
-%  - SaveDirectory:     Any directory, e.g. 'C:\Users\goltstein\Pictures'
+%  - SaveDirectory:         Any directory, e.g. 'C:\Users\goltstein\Pictures'
+%  - BloodVesselImage:      Matrix containing a bloodvessel image [Y,X]
+%                           If no image present, supply an empty matrix []
+%  - ScaleRange:            Range of values to code from black to brightest 
+%                               (e.g. [0,1] or [0.3 0.9])
+%  - NormalizeImages:       Scale images automatically between min-max
+%  - ClipAtPercentile:      Set minimum of image to this percentile, or do
+%                           not scale at all when set to NaN
+%  - InvertResponse:        If responses are negative, set to true
+%                           otherwise set to false
 %
     
     % Local settings
-    ScaleRange = [0.3 0.9];
     UseColorMap = 'hsv'; % Use this map, unless n-ptaches is 4 or 9, 
                          %   then it uses manually defined, see below
 
@@ -28,11 +36,11 @@ function PatchesColorMap( numYpatches, numXpatches, ...
     [ySize,xSize,nStim] = size(AverageResponseMatrix);
     
     % Make sure bloodvessel image is there, a double and scaled nicely
-    if nargin > 3
+    if isempty(BloodVesselImage)
+        BloodVesselImage = zeros(ySize,xSize);
+    else
         BloodVesselImage = im2double(BloodVesselImage);
         BloodVesselImage = imadjust(BloodVesselImage);
-    else
-        BloodVesselImage = zeros(ySize,xSize);
     end
     
     % get colormap for patches
@@ -50,11 +58,22 @@ function PatchesColorMap( numYpatches, numXpatches, ...
     % Normalize and invert each patch separately
     ScaledResponseMatrix = zeros(ySize,xSize,nStim);
     for c = 1:nStim
-        I = AverageResponseMatrix(:,:,c) * -1; % Here we switch from negative to positive responses
-        SortedInt = sort(I(:),'ascend');
-        IntThreshold = SortedInt( round(length(SortedInt)*0.25) );
-        I(I<IntThreshold) = IntThreshold;
-        ScaledResponseMatrix(:,:,c) = (I-min(I(:))) ./ (max(I(:))-min(I(:)));
+        if InvertResponse
+            I = AverageResponseMatrix(:,:,c) * -1; % Here we switch from negative to positive responses
+        else
+            I = AverageResponseMatrix(:,:,c);
+        end
+        if NormalizeImages
+            I = (I-min(I(:))) ./ (max(I(:))-min(I(:)));
+        end
+        if isnan(ClipAtLowerPercentile)
+            ScaledResponseMatrix(:,:,c) = I;
+        else
+            SortedInt = sort(I(:),'ascend');
+            IntThreshold = SortedInt( max([1, round(length(SortedInt)*ClipAtLowerPercentile)]) );
+            I(I<IntThreshold) = IntThreshold;
+            ScaledResponseMatrix(:,:,c) = (I-min(I(:))) ./ (max(I(:))-min(I(:)));
+        end
     end
     
     % Display scaled individual maps
